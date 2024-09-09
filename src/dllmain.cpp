@@ -208,11 +208,16 @@ void Resolution()
                     }
 
                     // Only log on resolution change and limit to 10
-                    if (iResX != iCurrentResX || iResY != iCurrentResY && iResCount < 10) {
+                    if ((iResX != iCurrentResX || iResY != iCurrentResY) && iResCount < 10) {
                         iCurrentResX = iResX;
                         iCurrentResY = iResY;
                         CalculateAspectRatio(true);
                     }
+                    else if (iResCount >= 10) {
+                        if (iResCount == 10) { spdlog::warn("Current Resolution: Log limit  of {} reached.", iResCount); }
+                    }
+
+                    iResCount++;
                 }
             });
     }
@@ -245,79 +250,78 @@ void AspectRatio()
 {
     if (bFixAspect) {
         // Aspect ratio
-        uint8_t* AspectRatio1ScanResult = Memory::PatternScan(baseModule, "F3 0F ?? ?? F3 0F ?? ?? ?? ?? ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? C7 ?? ?? ?? 80 02 00 00");
-        uint8_t* AspectRatio2ScanResult = Memory::PatternScan(baseModule, "0F 28 ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 0F ?? ?? C7 ?? ?? ?? ?? ?? 00 00 00 00");
-        if (AspectRatio1ScanResult && AspectRatio2ScanResult)
+        uint8_t* OcclusionAspectScanResult = Memory::PatternScan(baseModule, "F3 0F ?? ?? F3 0F ?? ?? ?? ?? ?? ?? 85 ?? 0F 84 ?? ?? ?? ?? C7 ?? ?? ?? 80 02 00 00");
+        uint8_t* ShadowAspectScanResult = Memory::PatternScan(baseModule, "0F 57 ?? ?? ?? ?? ?? 0F 28 ?? F3 0F ?? ?? 0F 28 ?? C7 05 ?? ?? ?? ?? 00 00 00 00");
+        if (OcclusionAspectScanResult && ShadowAspectScanResult)
         {
-            spdlog::info("AspectRatio: 1: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)AspectRatio1ScanResult - (uintptr_t)baseModule);
-            spdlog::info("AspectRatio: 2: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)AspectRatio2ScanResult - (uintptr_t)baseModule);
+            spdlog::info("Occlusion Aspect Ratio: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)OcclusionAspectScanResult - (uintptr_t)baseModule);
+            spdlog::info("Shadow Aspect Ratio: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ShadowAspectScanResult - (uintptr_t)baseModule);
 
-            static SafetyHookMid AspectRatio1MidHook{};
-            AspectRatio1MidHook = safetyhook::create_mid(AspectRatio1ScanResult,
+            static SafetyHookMid OcclusionAspectMidHook{};
+            OcclusionAspectMidHook = safetyhook::create_mid(OcclusionAspectScanResult,
                 [](SafetyHookContext& ctx)
                 {
                     ctx.xmm0.f32[0] = fAspectRatio;
                 });
 
-            static SafetyHookMid AspectRatio2MidHook{};
-            AspectRatio2MidHook = safetyhook::create_mid(AspectRatio2ScanResult,
+            static SafetyHookMid ShadowAspectMidHook{};
+            ShadowAspectMidHook = safetyhook::create_mid(ShadowAspectScanResult,
                 [](SafetyHookContext& ctx)
                 {
                     ctx.xmm0.f32[0] = fAspectRatio;
                 });
         }
-        else if (!AspectRatio1ScanResult || !AspectRatio2ScanResult)
+        else if (!OcclusionAspectScanResult || !ShadowAspectScanResult)
         {
-            spdlog::error("AspectRatio: Pattern scan failed.");
+            spdlog::error("Aspect Ratio: Pattern scan failed.");
         }
-    }
-}
-
-void Movie()
-{
-    // FMVs
-    uint8_t* MovieSizeScanResult = Memory::PatternScan(baseModule, "0F ?? ?? ?? 83 ?? ?? ?? 83 ?? ?? ?? 83 ?? ?? ?? 8B ?? E8 ?? ?? ?? ??");
-    uint8_t* MovieAspectScanResult = Memory::PatternScan(baseModule, "C7 44 ?? ?? ?? ?? ?? ?? 89 ?? ?? ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 0F ?? ?? F3 0F ?? ?? ?? ??");
-    if (MovieSizeScanResult && MovieAspectScanResult)
-    {
-        spdlog::info("Movie: Size: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MovieSizeScanResult + 0x4 - (uintptr_t)baseModule);
-        spdlog::info("Movie: Aspect: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MovieAspectScanResult - (uintptr_t)baseModule);
-
-        static SafetyHookMid MovieAspectMidHook{};
-        MovieAspectMidHook = safetyhook::create_mid(MovieAspectScanResult,
-            [](SafetyHookContext& ctx)
-            {
-                if (fAspectRatio > fNativeAspect)
-                {
-                    ctx.xmm0.f32[0] = fNativeAspect;
-                }
-            });
-
-        static SafetyHookMid MovieSizeMidHook{};
-        MovieSizeMidHook = safetyhook::create_mid(MovieSizeScanResult + 0x4,
-            [](SafetyHookContext& ctx)
-            {
-                if (ctx.eax + 0x20)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        *reinterpret_cast<int*>(ctx.eax + 0x20) = (int)fHUDWidth + (int)fHUDWidthOffset; // Width
-                        *reinterpret_cast<int*>(ctx.eax + 0x18) = (int)fHUDWidthOffset;                  // Horizontal Offset
-                        //*reinterpret_cast<int*>(ctx.eax + 0x24) = iResY; // Height
-                        //*reinterpret_cast<int*>(ctx.eax + 0x1C) = iResX; // Vertical Offset
-                    }
-                }
-            });
-    }
-    else if (!MovieSizeScanResult || !MovieAspectScanResult)
-    {
-        spdlog::error("Movie: Pattern scan failed.");
     }
 }
 
 void HUD()
 {
-    
+    if (bFixHUD) {
+        // Movies
+        uint8_t* MovieSizeScanResult = Memory::PatternScan(baseModule, "0F ?? ?? ?? 83 ?? ?? ?? 83 ?? ?? ?? 83 ?? ?? ?? 8B ?? E8 ?? ?? ?? ??");
+        uint8_t* MovieAspectScanResult = Memory::PatternScan(baseModule, "C7 44 ?? ?? ?? ?? ?? ?? 89 ?? ?? ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 0F ?? ?? F3 0F ?? ?? ?? ??");
+        if (MovieSizeScanResult && MovieAspectScanResult)
+        {
+            spdlog::info("Movies: Size: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MovieSizeScanResult + 0x4 - (uintptr_t)baseModule);
+            spdlog::info("Movies: Aspect Ratio: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MovieAspectScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid MovieAspectMidHook{};
+            MovieAspectMidHook = safetyhook::create_mid(MovieAspectScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio != fNativeAspect)
+                    {
+                        ctx.xmm0.f32[0] = fNativeAspect;
+                    }
+                });
+
+            static SafetyHookMid MovieSizeMidHook{};
+            MovieSizeMidHook = safetyhook::create_mid(MovieSizeScanResult + 0x4,
+                [](SafetyHookContext& ctx)
+                {
+                    if (ctx.eax + 0x20)
+                    {
+                        if (fAspectRatio > fNativeAspect)
+                        {
+                            *reinterpret_cast<int*>(ctx.eax + 0x20) = (int)fHUDWidth + (int)fHUDWidthOffset; // Width
+                            *reinterpret_cast<int*>(ctx.eax + 0x18) = (int)fHUDWidthOffset;                  // Horizontal Offset
+                        }
+                        else if (fAspectRatio < fNativeAspect) {
+                            *reinterpret_cast<int*>(ctx.eax + 0x24) = (int)fHUDHeight + (int)fHUDHeightOffset; // Height
+                            *reinterpret_cast<int*>(ctx.eax + 0x1C) = (int)fHUDHeightOffset; // Vertical Offset
+                        }
+                    }
+                });
+        }
+        else if (!MovieSizeScanResult || !MovieAspectScanResult)
+        {
+            spdlog::error("Movies: Pattern scan failed.");
+        }
+    }
 }
 
 DWORD __stdcall Main(void*)
