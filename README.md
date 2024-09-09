@@ -25,7 +25,7 @@ Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
 
 - HUD is stretched at ultrawide aspect ratios.
-- Aspect ratios narrower than 16:9 are displayed are stretched.
+- Aspect ratios narrower than 16:9 are stretched.
 
 ## Screenshots
 
