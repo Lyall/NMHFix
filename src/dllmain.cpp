@@ -182,14 +182,14 @@ void Resolution()
     if (CurrentResolutionScanResult)
     {
         spdlog::info("Current Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CurrentResolutionScanResult - (uintptr_t)baseModule);
-
-#ifndef NDEBUG
         static SafetyHookMid CurrentResolutionMidHook{};
         CurrentResolutionMidHook = safetyhook::create_mid(CurrentResolutionScanResult,
             [](SafetyHookContext& ctx)
             {
                 if (ctx.esi)
                 {
+                    // Debug build with pdb uses different offsets for this function.
+                    #ifndef NDEBUG
                     if (bFixRes)
                     {
                         *reinterpret_cast<int*>(ctx.esi + 0x18) = *reinterpret_cast<int*>(ctx.esi + 0x18) + *reinterpret_cast<int*>(ctx.esi + 0x10);
@@ -206,22 +206,7 @@ void Resolution()
                         iResX = *reinterpret_cast<int*>(ctx.esi + 0x18) - *reinterpret_cast<int*>(ctx.esi + 0x10);
                         iResY = *reinterpret_cast<int*>(ctx.esi + 0x1C) - *reinterpret_cast<int*>(ctx.esi + 0x14);
                     }
-
-                    // Only log on resolution change
-                    if (iResX != iCurrentResX || iResY != iCurrentResY) {
-                        iCurrentResX = iResX;
-                        iCurrentResY = iResY;
-                        CalculateAspectRatio(true);
-                    }
-                }
-            });
-#else
-        static SafetyHookMid CurrentResolutionMidHook{};
-        CurrentResolutionMidHook = safetyhook::create_mid(CurrentResolutionScanResult,
-            [](SafetyHookContext& ctx)
-            {
-                if (ctx.esi)
-                {
+                    #else
                     if (bFixRes)
                     {
                         *reinterpret_cast<int*>(ctx.esi + 0xD0) = *reinterpret_cast<int*>(ctx.esi + 0xD0) + *reinterpret_cast<int*>(ctx.esi + 0xC8);
@@ -238,6 +223,7 @@ void Resolution()
                         iResX = *reinterpret_cast<int*>(ctx.esi + 0xD0) - *reinterpret_cast<int*>(ctx.esi + 0xC8);
                         iResY = *reinterpret_cast<int*>(ctx.esi + 0xD4) - *reinterpret_cast<int*>(ctx.esi + 0xCC);
                     }
+                    #endif
 
                     // Only log on resolution change
                     if (iResX != iCurrentResX || iResY != iCurrentResY) {
@@ -247,7 +233,7 @@ void Resolution()
                     }
                 }
             });
-#endif
+
     }
     else if (!CurrentResolutionScanResult)
     {
