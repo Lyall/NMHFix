@@ -11,7 +11,7 @@ This is a fix for No More Heroes that adds ultrawide support and more.
 
 ## Installation
 - Grab the latest release of NMHFix from [here.](https://github.com/Lyall/NMHFix/releases)
-- Extract the contents of the release zip in to the the game folder.<br />(e.g. "**steamapps\common\No More Heroes**" for Steam).
+- Extract the contents of the release zip in to the the game folder. (e.g. "**steamapps\common\No More Heroes**" for Steam).
 
 ### Steam Deck/Linux Additional Instructions
 🚩**You do not need to do this if you are using Windows!**
