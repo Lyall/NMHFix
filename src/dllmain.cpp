@@ -44,7 +44,6 @@ int iResX;
 int iResY;
 int iCurrentResX;
 int iCurrentResY;
-int iResCount = 0;
 int iDefaultViewportX = 854;
 int iDefaultViewportY = 480;
 float fHUDAspect = (float)640 / 854;
@@ -165,7 +164,7 @@ void IntroSkip()
         uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "C7 ?? ?? 00 00 00 00 C6 ?? ?? 00 C6 ?? ?? ?? ?? ?? 00 C7 ?? ?? ?? ?? ?? ?? ?? ?? ??");
         if (IntroSkipScanResult)
         {
-            spdlog::info("Skip Intro: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult + 0x7 - (uintptr_t)baseModule);
+            spdlog::info("Skip Intro: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
             Memory::Write((uintptr_t)IntroSkipScanResult + 0xA, (BYTE)1); // inLogoSkip = true
             spdlog::info("Skip Intro: Patched instruction.");
         }
@@ -208,17 +207,12 @@ void Resolution()
                         iResY = *reinterpret_cast<int*>(ctx.esi + 0x1C) - *reinterpret_cast<int*>(ctx.esi + 0x14);
                     }
 
-                    // Only log on resolution change and limit to 10
-                    if ((iResX != iCurrentResX || iResY != iCurrentResY) && iResCount < 10) {
+                    // Only log on resolution change
+                    if (iResX != iCurrentResX || iResY != iCurrentResY) {
                         iCurrentResX = iResX;
                         iCurrentResY = iResY;
                         CalculateAspectRatio(true);
                     }
-                    else if (iResCount >= 10) {
-                        if (iResCount == 10) { spdlog::warn("Current Resolution: Log limit  of {} reached.", iResCount); }
-                    }
-
-                    iResCount++;
                 }
             });
 #else
@@ -245,17 +239,12 @@ void Resolution()
                         iResY = *reinterpret_cast<int*>(ctx.esi + 0xD4) - *reinterpret_cast<int*>(ctx.esi + 0xCC);
                     }
 
-                    // Only log on resolution change and limit to 10
-                    if ((iResX != iCurrentResX || iResY != iCurrentResY) && iResCount < 10) {
+                    // Only log on resolution change
+                    if (iResX != iCurrentResX || iResY != iCurrentResY) {
                         iCurrentResX = iResX;
                         iCurrentResY = iResY;
                         CalculateAspectRatio(true);
                     }
-                    else if (iResCount >= 10) {
-                        if (iResCount == 10) { spdlog::warn("Current Resolution: Log limit  of {} reached.", iResCount); }
-                    }
-
-                    iResCount++;
                 }
             });
 #endif
@@ -325,7 +314,7 @@ void HUD()
         uint8_t* MovieAspectScanResult = Memory::PatternScan(baseModule, "C7 44 ?? ?? ?? ?? ?? ?? 89 ?? ?? ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 0F ?? ?? F3 0F ?? ?? ?? ??");
         if (MovieSizeScanResult && MovieAspectScanResult)
         {
-            spdlog::info("Movies: Size: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MovieSizeScanResult + 0x4 - (uintptr_t)baseModule);
+            spdlog::info("Movies: Size: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MovieSizeScanResult - (uintptr_t)baseModule);
             spdlog::info("Movies: Aspect Ratio: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MovieAspectScanResult - (uintptr_t)baseModule);
 
             static SafetyHookMid MovieAspectMidHook{};
