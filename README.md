@@ -1,11 +1,13 @@
 ﻿# No More Heroes Fix
-[![Patreon-Button](https://github.com/user-attachments/assets/ef86cee1-222a-444c-a2c0-709578a15732)](https://www.patreon.com/Wintermance) [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)<br />
+[![Patreon-Button](https://github.com/user-attachments/assets/73df94d4-a016-4027-bde8-d6862ed1670f)](https://www.patreon.com/Wintermance) [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)<br />
 [![Github All Releases](https://img.shields.io/github/downloads/Lyall/NMHFix/total.svg)](https://github.com/Lyall/NMHFix/releases)
 
-This is a fix for No More Heroes that adds ultrawide/narrower support.
+This is a fix for No More Heroes that adds ultrawide support and more.
 
 ## Features
--
+- Ultrawide aspect ratio support.
+- Correctly scaled FMVs.
+- Intro skip.
 
 ## Installation
 - Grab the latest release of NMHFix from [here.](https://github.com/Lyall/NMHFix/releases)
@@ -22,9 +24,11 @@ This is a fix for No More Heroes that adds ultrawide/narrower support.
 Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
 
+- HUD is stretched at ultrawide aspect ratios.
+
 ## Screenshots
 
-|   |
+| ![ezgif-5-b6896627b0](https://github.com/user-attachments/assets/541c807a-0fcc-44d5-8f64-dfbed6bcc54c) |
 |:--:|
 | Gameplay |
 
