@@ -183,12 +183,13 @@ void Resolution()
     if (CurrentResolutionScanResult)
     {
         spdlog::info("Current Resolution: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)CurrentResolutionScanResult - (uintptr_t)baseModule);
-        
+
+#ifndef NDEBUG
         static SafetyHookMid CurrentResolutionMidHook{};
         CurrentResolutionMidHook = safetyhook::create_mid(CurrentResolutionScanResult,
             [](SafetyHookContext& ctx)
             {
-                if (ctx.esi + 0x18)
+                if (ctx.esi)
                 {
                     if (bFixRes)
                     {
@@ -220,6 +221,44 @@ void Resolution()
                     iResCount++;
                 }
             });
+#else
+        static SafetyHookMid CurrentResolutionMidHook{};
+        CurrentResolutionMidHook = safetyhook::create_mid(CurrentResolutionScanResult,
+            [](SafetyHookContext& ctx)
+            {
+                if (ctx.esi)
+                {
+                    if (bFixRes)
+                    {
+                        *reinterpret_cast<int*>(ctx.esi + 0xD0) = *reinterpret_cast<int*>(ctx.esi + 0xD0) + *reinterpret_cast<int*>(ctx.esi + 0xC8);
+                        *reinterpret_cast<int*>(ctx.esi + 0xD4) = *reinterpret_cast<int*>(ctx.esi + 0xD4) + *reinterpret_cast<int*>(ctx.esi + 0xCC);
+
+                        *reinterpret_cast<int*>(ctx.esi + 0xC8) = 0; // Hor
+                        *reinterpret_cast<int*>(ctx.esi + 0xCC) = 0; // Vert
+
+                        iResX = *reinterpret_cast<int*>(ctx.esi + 0xD0);
+                        iResY = *reinterpret_cast<int*>(ctx.esi + 0xD4);
+                    }
+                    else
+                    {
+                        iResX = *reinterpret_cast<int*>(ctx.esi + 0xD0) - *reinterpret_cast<int*>(ctx.esi + 0xC8);
+                        iResY = *reinterpret_cast<int*>(ctx.esi + 0xD4) - *reinterpret_cast<int*>(ctx.esi + 0xCC);
+                    }
+
+                    // Only log on resolution change and limit to 10
+                    if ((iResX != iCurrentResX || iResY != iCurrentResY) && iResCount < 10) {
+                        iCurrentResX = iResX;
+                        iCurrentResY = iResY;
+                        CalculateAspectRatio(true);
+                    }
+                    else if (iResCount >= 10) {
+                        if (iResCount == 10) { spdlog::warn("Current Resolution: Log limit  of {} reached.", iResCount); }
+                    }
+
+                    iResCount++;
+                }
+            });
+#endif
     }
     else if (!CurrentResolutionScanResult)
     {
