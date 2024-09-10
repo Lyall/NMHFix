@@ -396,7 +396,11 @@ void HUD()
             uintptr_t HUDAspect2Value = *reinterpret_cast<std::int32_t*>(HUDAspect2ScanResult + 0x5);
 
             HUDAspect1Addr = HUDAspect1Value;
+            #ifndef NDEBUG
             HUDAspect2Addr = HUDAspect2Value - 0xC;
+            #else
+            HUDAspect2Addr = HUDAspect2Value - 0x4;
+            #endif  
             HUDAspect3Addr = HUDAspect2Value + 0xC;
             HUDWidthAddr = HUDAspect2Value + 0x10;
 
