@@ -2,10 +2,10 @@
 [![Patreon-Button](https://github.com/user-attachments/assets/73df94d4-a016-4027-bde8-d6862ed1670f)](https://www.patreon.com/Wintermance) [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01UAI9)<br />
 [![Github All Releases](https://img.shields.io/github/downloads/Lyall/NMHFix/total.svg)](https://github.com/Lyall/NMHFix/releases)
 
-This is a fix for No More Heroes that adds ultrawide support and more.
+This is a fix for No More Heroes that adds ultrawide/narrower support and more.
 
 ## Features
-- Ultrawide aspect ratio support.
+- Ultrawide/narrower aspect ratio support.
 - Correctly scaled FMVs.
 - Intro skip.
 
@@ -24,8 +24,7 @@ This is a fix for No More Heroes that adds ultrawide support and more.
 Please report any issues you see.
 This list will contain bugs which may or may not be fixed.
 
-- HUD is stretched at ultrawide aspect ratios.
-- Aspect ratios narrower than 16:9 are stretched.
+- HUD is stretched at non-16:9 aspect ratios.
 
 ## Screenshots
 
