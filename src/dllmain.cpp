@@ -299,6 +299,24 @@ void AspectRatio()
         {
             spdlog::error("Aspect Ratio: Pattern scan failed.");
         }
+
+        // Building pop-in
+        uint8_t* StageTriangleTestScanResult = Memory::PatternScan(baseModule, "34 01 83 ?? ?? 88 ?? ?? 8B ?? ?? ?? ?? ?? 80 ?? ?? ?? ?? ?? 00");
+        if (StageTriangleTestScanResult)
+        {
+            spdlog::info("StageTriangleTest: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)StageTriangleTestScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid StageTriangleTestMidHook{};
+            StageTriangleTestMidHook = safetyhook::create_mid(StageTriangleTestScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    ctx.eax |= 0x01;
+                });
+        }
+        else if (!StageTriangleTestScanResult)
+        {
+            spdlog::error("StageTriangleTest: Pattern scan failed.");
+        }
     }
 
     if (bFixHUD)
