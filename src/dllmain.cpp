@@ -27,6 +27,7 @@ std::pair DesktopDimensions = { 0,0 };
 bool bSkipIntro;
 bool bFixRes;
 bool bFixAspect;
+bool bFixFOV;
 bool bFixHUD;
 
 // Aspect ratio + HUD stuff
@@ -53,6 +54,7 @@ uintptr_t HUDAspect3Addr;
 uintptr_t HUDWidthAddr;
 uintptr_t HUDBackgroundWidthAddr;
 uintptr_t HUDBackgroundHeightAddr;
+bool bIsHUD;
 
 void CalculateAspectRatio(bool bLog)
 {
@@ -150,6 +152,8 @@ void Configuration()
     spdlog::info("Config Parse: bFixRes: {}", bFixRes);
     inipp::get_value(ini.sections["Fix Aspect Ratio"], "Enabled", bFixAspect);
     spdlog::info("Config Parse: bFixAspect: {}", bFixAspect);
+    inipp::get_value(ini.sections["Fix FOV"], "Enabled", bFixFOV);
+    spdlog::info("Config Parse: bFixFOV: {}", bFixFOV);
     inipp::get_value(ini.sections["Skip Intro"], "Enabled", bSkipIntro);
     spdlog::info("Config Parse: bSkipIntro: {}", bSkipIntro);
     inipp::get_value(ini.sections["Fix HUD"], "Enabled", bFixHUD);
@@ -278,10 +282,10 @@ void AspectRatio()
             spdlog::info("Shadow Aspect Ratio: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ShadowAspectScanResult - (uintptr_t)baseModule);
 
             static SafetyHookMid OcclusionAspectMidHook{};
-            OcclusionAspectMidHook = safetyhook::create_mid(OcclusionAspectScanResult,
+            OcclusionAspectMidHook = safetyhook::create_mid(OcclusionAspectScanResult + 0x4,
                 [](SafetyHookContext& ctx)
                 {
-                    ctx.xmm0.f32[0] = fAspectRatio;
+                    ctx.xmm0.f32[0] = 1.00f;
                 });
 
             static SafetyHookMid ShadowAspectMidHook{};
@@ -296,11 +300,9 @@ void AspectRatio()
             spdlog::error("Aspect Ratio: Pattern scan failed.");
         }
     }
-}
 
-void HUD()
-{
-    if (bFixHUD) {
+    if (bFixHUD)
+    {
         // Movies
         uint8_t* MovieSizeScanResult = Memory::PatternScan(baseModule, "0F ?? ?? ?? 83 ?? ?? ?? 83 ?? ?? ?? 83 ?? ?? ?? 8B ?? E8 ?? ?? ?? ??");
         uint8_t* MovieAspectScanResult = Memory::PatternScan(baseModule, "C7 44 ?? ?? ?? ?? ?? ?? 89 ?? ?? ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? F3 0F ?? ?? F3 0F ?? ?? ?? ??");
@@ -341,7 +343,40 @@ void HUD()
         {
             spdlog::error("HUD: Movies: Pattern scan failed.");
         }
+    }
+}
 
+void FOV()
+{
+    if (bFixFOV)
+    {
+        // Global FOV
+        uint8_t* FOVScanResult = Memory::PatternScan(baseModule, "F3 0F 11 ?? ?? F3 0F 11 ?? ?? ?? ?? ?? F3 0F 59 ?? ?? ?? ?? ?? 56");
+        if (FOVScanResult)
+        {
+            spdlog::info("FOV: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)FOVScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid FOVMidHook{};
+            FOVMidHook = safetyhook::create_mid(FOVScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    if (fAspectRatio < fNativeAspect)
+                    {
+                        ctx.xmm0.f32[0] = atanf(tanf(ctx.xmm0.f32[0] * (fPi / 360)) / (fAspectRatio) * (fNativeAspect)) * (360 / fPi);
+                    }               
+                });
+        }
+        else if (!FOVScanResult)
+        {
+            spdlog::error("FOV: Pattern scan failed.");
+        }
+    }
+}
+
+void HUD()
+{
+    if (bFixHUD) {
+        
         // Set Viewport
         uint8_t* SetViewportScanResult = Memory::PatternScan(baseModule, "C7 ?? ?? 00 00 F0 43 E8 ?? ?? ?? ??");
         if (SetViewportScanResult)
@@ -431,50 +466,6 @@ void HUD()
             spdlog::error("HUD: Aspect Ratio: Pattern scan failed.");
         }
 
-        // DrawTex
-        uint8_t* DrawTexScanResult = Memory::PatternScan(baseModule, "53 8B ?? 83 ?? ?? 83 ?? ?? 83 ?? ?? 55 8B ?? ?? 89 ?? ?? ?? 8B ?? 83 ?? ?? 83 3D ?? ?? ?? ?? 00 0F 28 ?? 56 0F 28 ?? F3 0F ?? ?? ?? 57 8B ?? F3 0F ?? ?? ??");
-        if (DrawTexScanResult)
-        {
-            spdlog::info("HUD: DrawTex: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)DrawTexScanResult - (uintptr_t)baseModule);
-
-            static SafetyHookMid DrawTexMidHook{};
-            DrawTexMidHook = safetyhook::create_mid(DrawTexScanResult,
-                [](SafetyHookContext& ctx)
-                {
-                    if (ctx.xmm0.f32[0] != 0.00f && fAspectRatio > fNativeAspect)
-                    {
-                        //ctx.xmm0.f32[0] += ((480.00f * fAspectRatio) - 854.00f) / 2.00f;
-                    }
-                });
-        }
-        else if (!DrawTexScanResult)
-        {
-            spdlog::error("HUD: DrawTex: Pattern scan failed.");
-        }
-
-        // DrawCodeString
-        uint8_t* DrawCodeStringScanResult = Memory::PatternScan(baseModule, "8B ?? FF ?? ?? 50 E8 ?? ?? ?? ?? 8B ?? ?? 33 ?? 5E E8 ?? ?? ?? ?? 8B ?? 5D C2 ?? ??");
-        if (DrawCodeStringScanResult)
-        {
-            spdlog::info("HUD: DrawCodeString: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)DrawCodeStringScanResult - (uintptr_t)baseModule);
-            uintptr_t DrawCodeStringFuncAddr = (uintptr_t)DrawCodeStringScanResult + 0xB + *reinterpret_cast<std::int32_t*>(DrawCodeStringScanResult + 0x7);
-            spdlog::info("HUD: DrawCodeString: Function address is {:s}+{:x}", sExeName.c_str(), DrawCodeStringFuncAddr - (uintptr_t)baseModule);
-
-            static SafetyHookMid DrawCodeStringMidHook{};
-            DrawCodeStringMidHook = safetyhook::create_mid(DrawCodeStringFuncAddr,
-                [](SafetyHookContext& ctx)
-                {
-                    if (fAspectRatio > fNativeAspect)
-                    {
-                        //ctx.xmm1.f32[0] += ((480.00f * fAspectRatio) - 854.00f) / 2.00f;
-                    }
-                });
-        }
-        else if (!DrawCodeStringScanResult)
-        {
-            spdlog::error("HUD: DrawCodeString: Pattern scan failed.");
-        }
-
         // DrawBox
         uint8_t* DrawBoxScanResult = Memory::PatternScan(baseModule, "0F 5B ?? E8 ?? ?? ?? ?? C6 ?? ?? ?? ?? ?? 00 C3");
         if (DrawBoxScanResult)
@@ -487,18 +478,13 @@ void HUD()
             DrawBoxMidHook = safetyhook::create_mid(DrawBoxFuncAddr,
                 [](SafetyHookContext& ctx)
                 {
-                    if (ctx.xmm3.f32[0] < floorf(480.00f * fAspectRatio))
-                    {
-                        //ctx.xmm0.f32[0] += ((480.00f * fAspectRatio) - 854.00f) / 2.00f;
-                    }
-
                     if (HUDAspect1Addr && HUDAspect2Addr && HUDAspect3Addr) 
                     {
                         if (fAspectRatio > fNativeAspect)
                         {
-                            Memory::Write(HUDAspect1Addr, 640.00f / (480.00f * fAspectRatio));
-                            Memory::Write(HUDAspect2Addr, 640.00f / (480.00f * fAspectRatio));
-                            Memory::Write(HUDAspect3Addr, 640.00f / (480.00f * fAspectRatio));
+                            //Memory::Write(HUDAspect1Addr, 640.00f / (480.00f * fAspectRatio));
+                            //Memory::Write(HUDAspect2Addr, 640.00f / (480.00f * fAspectRatio));
+                            //Memory::Write(HUDAspect3Addr, 640.00f / (480.00f * fAspectRatio));
                         }
                     }
 
@@ -506,7 +492,7 @@ void HUD()
                     {
                         if (fAspectRatio > fNativeAspect)
                         {
-                            Memory::Write(HUDWidthAddr, (int)(480.00f * fAspectRatio));
+                            //Memory::Write(HUDWidthAddr, (int)(480.00f * fAspectRatio));
                         }
                     }
 
@@ -523,6 +509,30 @@ void HUD()
         {
             spdlog::error("HUD: DrawBox: Pattern scan failed.");
         }
+
+        // MTXOrtho
+        uint8_t* MTXOrthoScanResult = Memory::PatternScan(baseModule, "0F 57 ?? F3 0F ?? ?? ?? F3 0F 10 ?? ?? ?? ?? ?? F3 0F ?? ?? 0F 28 ?? 0F 28 ??");
+        if (MTXOrthoScanResult)
+        {
+            spdlog::info("HUD: MTXOrtho: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MTXOrthoScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid MTXOrthoOffsetMidHook{};
+            MTXOrthoOffsetMidHook = safetyhook::create_mid(MTXOrthoScanResult + 0x3,
+                [](SafetyHookContext& ctx)
+                {
+                    if (bIsHUD)
+                    {
+                        if (fAspectRatio > fNativeAspect) 
+                        {
+                            ctx.xmm3.f32[0] = -1.00f / fAspectMultiplier;
+                        }
+                    }
+                });
+        }
+        else if (!MTXOrthoScanResult)
+        {
+            spdlog::error("HUD: MTXOrtho: Pattern scan failed.");
+        }
     }
 }
 
@@ -533,7 +543,8 @@ DWORD __stdcall Main(void*)
     IntroSkip();
     Resolution();
     AspectRatio();
-    HUD();
+    FOV();
+    //HUD();
     return true;
 }
 
