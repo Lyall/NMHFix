@@ -10,7 +10,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 
 // Version
 std::string sFixName = "NMHFix";
-std::string sFixVer = "0.7.0";
+std::string sFixVer = "0.7.1";
 std::string sLogFile = sFixName + ".log";
 
 // Logger
@@ -171,11 +171,11 @@ void IntroSkip()
     if (bSkipIntro)
     {
         // Intro Skip
-        uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "C7 ?? ?? 00 00 00 00 C6 ?? ?? 00 C6 ?? ?? ?? ?? ?? 00 C7 ?? ?? ?? ?? ?? ?? ?? ?? ??");
+        uint8_t* IntroSkipScanResult = Memory::PatternScan(baseModule, "80 ?? 08 00 0F 85 ?? ?? ?? ?? 80 7F ?? 00 0F 85 ?? ?? ?? ??");
         if (IntroSkipScanResult)
         {
             spdlog::info("Skip Intro: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)IntroSkipScanResult - (uintptr_t)baseModule);
-            Memory::Write((uintptr_t)IntroSkipScanResult + 0xA, (BYTE)1); // inLogoSkip = true
+            Memory::Write((uintptr_t)IntroSkipScanResult + 0x3, (BYTE)1); // inLogoSkip = true
             spdlog::info("Skip Intro: Patched instruction.");
         }
         else if (!IntroSkipScanResult)
