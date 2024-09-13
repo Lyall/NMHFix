@@ -10,7 +10,7 @@ HMODULE baseModule = GetModuleHandle(NULL);
 
 // Version
 std::string sFixName = "NMHFix";
-std::string sFixVer = "0.7.1";
+std::string sFixVer = "0.7.2";
 std::string sLogFile = sFixName + ".log";
 
 // Logger
@@ -500,9 +500,9 @@ void HUD()
                     {
                         if (fAspectRatio > fNativeAspect)
                         {
-                            //Memory::Write(HUDAspect1Addr, 640.00f / (480.00f * fAspectRatio));
-                            //Memory::Write(HUDAspect2Addr, 640.00f / (480.00f * fAspectRatio));
-                            //Memory::Write(HUDAspect3Addr, 640.00f / (480.00f * fAspectRatio));
+                            Memory::Write(HUDAspect1Addr, 640.00f / (480.00f * fAspectRatio));
+                            Memory::Write(HUDAspect2Addr, 640.00f / (480.00f * fAspectRatio));
+                            Memory::Write(HUDAspect3Addr, 640.00f / (480.00f * fAspectRatio));
                         }
                     }
 
@@ -510,7 +510,7 @@ void HUD()
                     {
                         if (fAspectRatio > fNativeAspect)
                         {
-                            //Memory::Write(HUDWidthAddr, (int)(480.00f * fAspectRatio));
+                            Memory::Write(HUDWidthAddr, (int)(480.00f * fAspectRatio));
                         }
                     }
 
@@ -528,28 +528,47 @@ void HUD()
             spdlog::error("HUD: DrawBox: Pattern scan failed.");
         }
 
-        // MTXOrtho
-        uint8_t* MTXOrthoScanResult = Memory::PatternScan(baseModule, "0F 57 ?? F3 0F ?? ?? ?? F3 0F 10 ?? ?? ?? ?? ?? F3 0F ?? ?? 0F 28 ?? 0F 28 ??");
-        if (MTXOrthoScanResult)
+        // ScreenStatus
+        uint8_t* ScreenStatusBeginScanResult = Memory::PatternScan(baseModule, "BA 03 00 00 00 6A 01 6A 00 6A 01 8D ?? ?? E8 ?? ?? ?? ?? 83 ?? ?? 8B ?? E8 ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? ?? F3 0F 10 ?? ?? ?? ?? ??");
+        if (ScreenStatusBeginScanResult)
         {
-            spdlog::info("HUD: MTXOrtho: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)MTXOrthoScanResult - (uintptr_t)baseModule);
+            spdlog::info("HUD: ScreenStatus: Begin: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)ScreenStatusBeginScanResult - (uintptr_t)baseModule);
 
-            static SafetyHookMid MTXOrthoOffsetMidHook{};
-            MTXOrthoOffsetMidHook = safetyhook::create_mid(MTXOrthoScanResult + 0x3,
+            static SafetyHookMid ScreenStatusBeginMidHook{};
+            ScreenStatusBeginMidHook = safetyhook::create_mid(ScreenStatusBeginScanResult,
+                [](SafetyHookContext& ctx)
+                {
+                    bIsHUD = true;
+                });
+        }
+        else if (!ScreenStatusBeginScanResult)
+        {
+            spdlog::error("HUD: ScreenStatus: Pattern scan failed.");
+        }
+
+        // SetProjection
+        uint8_t* SetProjectionScanResult = Memory::PatternScan(baseModule, "8B 3D ?? ?? ?? ?? 89 87 ?? ?? ?? ?? 8D B7 ?? ?? ?? ?? 8B ?? 04");
+        if (SetProjectionScanResult)
+        {
+            spdlog::info("HUD: SetProjection: Address is {:s}+{:x}", sExeName.c_str(), (uintptr_t)SetProjectionScanResult - (uintptr_t)baseModule);
+
+            static SafetyHookMid SetProjectionOffsetMidHook{};
+            SetProjectionOffsetMidHook = safetyhook::create_mid(SetProjectionScanResult + 0x21,
                 [](SafetyHookContext& ctx)
                 {
                     if (bIsHUD)
                     {
                         if (fAspectRatio > fNativeAspect) 
                         {
-                            ctx.xmm3.f32[0] = -1.00f / fAspectMultiplier;
+                            float fWidth = -1.00f / fAspectMultiplier;
+                            ctx.eax = *(uint32_t*)&fWidth;
                         }
                     }
                 });
         }
-        else if (!MTXOrthoScanResult)
+        else if (!SetProjectionScanResult)
         {
-            spdlog::error("HUD: MTXOrtho: Pattern scan failed.");
+            spdlog::error("HUD: SetProjection: Pattern scan failed.");
         }
     }
 }
